@@ -14,6 +14,16 @@ jobs:
         config:
           - name: Windows
             os: windows-latest
+          - name: macOS - iOS device
+            os: macos-latest
+            platform: iphoneos
+            arch: arm64
+          - name: macOS - iOS simulator
+            os: macos-latest
+            platform: iphonesimulator
+            # simulator may need both x86_64 (intel runners) and arm64 (M1/M2),
+            # but many builds only need arm64 or x86_64 depending on target.
+            arch: "x86_64;arm64"
     name: ${{ matrix.config.name }}
     runs-on: ${{ matrix.config.os }}
     steps:
@@ -30,7 +40,13 @@ jobs:
           bindings-ref: 13436953582c8bfa6d7a91392c9f575d5bafec83
           # Build the code generator from the pinned bindings instead of
           # downloading the prebuilt one, which comes from newer bindings.
-          configure-args: -DSKIP_BUILDING_CODEGEN=OFF
+          # Add iOS-specific CMake args on macOS runners to target iphoneos/iphonesimulator
+          configure-args: |
+            -DSKIP_BUILDING_CODEGEN=OFF
+            -DCMAKE_SYSTEM_NAME=iOS
+            -DCMAKE_OSX_SYSROOT=${{ matrix.config.platform }}
+            -DCMAKE_OSX_ARCHITECTURES=${{ matrix.config.arch }}
+            -DCMAKE_BUILD_TYPE=Release
 
   package:
     name: Package builds
