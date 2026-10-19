@@ -22,6 +22,10 @@ using namespace geode::prelude;
 constexpr int SPAM_INTERVAL_TICKS = 8;
 constexpr int SPAM_STREAK_REQUIRED = 3;
 
+// Prints one line per intercepted input explaining what the buffer decided.
+// Set to false once everything works.
+constexpr bool DEBUG_LOG = true;
+
 // ============================================================================
 
 class TrajectoryBufferSim {
@@ -85,6 +89,13 @@ private:
         sim->m_isUpsideDown = real->m_isUpsideDown;
         sim->m_vehicleSize = real->m_vehicleSize;
         sim->m_playerSpeed = real->m_playerSpeed;
+
+        // copyAttributes() does not copy position or velocity. Without this the
+        // sim player runs from its spawn point (x=0) and never meets any hazard,
+        // so the buffer would never find a reason to delay an input.
+        sim->setPosition(real->getPosition());
+        sim->m_position = real->m_position;
+        sim->m_yVelocity = real->m_yVelocity;
     }
 
     float getValidDt() const {
@@ -297,6 +308,14 @@ public:
             return true;
         }
 
+        if (DEBUG_LOG) {
+            printf("[InputBuffer][dbg] input %s enabled=%d ship=%d wave=%d sim=%s\n",
+                push ? "PRESS" : "RELEASE", (int)m_enabled,
+                (int)(layer->m_player1 && layer->m_player1->m_isShip),
+                (int)(layer->m_player1 && layer->m_player1->m_isDart),
+                m_simPlayer1 ? "ok" : "MISSING");
+        }
+
         // Always record the user's true physical mouse/key state first!
         m_physicalHolding = push;
 
@@ -381,6 +400,13 @@ public:
 
         // 4. Check Frame 0 (immediate input) across the full trajectory horizon
         int ticksFrame0 = getSurvivalTicks(pl, p1, p2, isDual, 0, push, targetHorizon);
+        if (DEBUG_LOG) {
+            printf("[InputBuffer][dbg] %s: immediate input survives %d / %d ticks, real pos (%.0f, %.0f), sim pos (%.0f, %.0f)\n",
+                act, ticksFrame0, targetHorizon,
+                p1->getPositionX(), p1->getPositionY(),
+                m_simPlayer1 ? m_simPlayer1->getPositionX() : -1.f,
+                m_simPlayer1 ? m_simPlayer1->getPositionY() : -1.f);
+        }
         if (ticksFrame0 >= targetHorizon) {
             m_gameHolding = push;
             return true;
