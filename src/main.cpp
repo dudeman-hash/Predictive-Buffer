@@ -36,6 +36,7 @@ private:
     bool m_simulating = false;
     bool m_firingBuffered = false;
     bool m_simulationDead = false;
+    int  m_simDeathCalls = 0; // debug: how many times destroyPlayer fired for a sim player
 
     // Tracks actual physical mouse state vs what PlayLayer currently has active
     bool m_physicalHolding = false;
@@ -185,6 +186,7 @@ public:
     bool checkSimulationDeath(PlayerObject* player) {
         if (m_simulating && (player == m_simPlayer1 || player == m_simPlayer2)) {
             m_simulationDead = true;
+            m_simDeathCalls++;
             return true;
         }
         // Real player died -> clear any pending buffer so respawn is 100% clean
@@ -401,8 +403,8 @@ public:
         // 4. Check Frame 0 (immediate input) across the full trajectory horizon
         int ticksFrame0 = getSurvivalTicks(pl, p1, p2, isDual, 0, push, targetHorizon);
         if (DEBUG_LOG) {
-            printf("[InputBuffer][dbg] %s: immediate input survives %d / %d ticks, real pos (%.0f, %.0f), sim pos (%.0f, %.0f)\n",
-                act, ticksFrame0, targetHorizon,
+            printf("[InputBuffer][dbg] %s: immediate input survives %d / %d ticks (sim died=%d, total sim deaths=%d), real pos (%.0f, %.0f), sim pos (%.0f, %.0f)\n",
+                act, ticksFrame0, targetHorizon, (int)m_simulationDead, m_simDeathCalls,
                 p1->getPositionX(), p1->getPositionY(),
                 m_simPlayer1 ? m_simPlayer1->getPositionX() : -1.f,
                 m_simPlayer1 ? m_simPlayer1->getPositionY() : -1.f);
@@ -419,6 +421,9 @@ public:
 
         for (int delay = 1; delay <= maxDelayFrames; delay++) {
             int ticks = getSurvivalTicks(pl, p1, p2, isDual, delay, push, targetHorizon);
+            if (DEBUG_LOG) {
+                printf("[InputBuffer][dbg]   delay +%d -> survives %d / %d\n", delay, ticks, targetHorizon);
+            }
 
             if (isWave) {
                 // In Wave mode, delaying a turn inside a flat corridor naturally adds ~(2 * delay)
